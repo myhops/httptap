@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/myhops/httptap/bufpool"
 )
@@ -61,12 +62,19 @@ func (h *Handler) copyResponse(rr *RequestResponse, r *http.Response) {
 }
 
 func (h *Handler) rewrite(pr *httputil.ProxyRequest) {
+
+	// Create the request response and add it to the context of the outgoing request.
+	rr := &RequestResponse{
+		Start: time.Now(),
+	}
+	pr.Out = pr.Out.WithContext(WithRequestResponseValue(pr.Out.Context(), rr))
+
 	// set upstream.
 	pr.SetURL(h.p.upstream)
 
-	// Create the request response and add it to the context of the outgoing request.
-	rr := &RequestResponse{}
-	pr.Out = pr.Out.WithContext(WithRequestResponseValue(pr.Out.Context(), rr))
+	pr.Out.Host = pr.In.Host
+
+	pr.SetXForwarded()
 
 	// Record the data.
 	h.copyRequest(rr, pr)
@@ -77,9 +85,12 @@ func (h *Handler) modifyResponse(r *http.Response) error {
 	ctx := r.Request.Context()
 	rr := RequestResponseValue(ctx)
 	if rr == nil {
-		// log this as an error.
+		h.logger.ErrorContext(ctx, "request response not in context")
 		return nil
 	}
+	rr.End = time.Now()
+	rr.Duration = rr.End.Sub(rr.Start)  
+
 	// Record the data.
 	h.copyResponse(rr, r)
 
