@@ -1,6 +1,7 @@
 package httptap
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -73,7 +74,8 @@ func (h *Handler) rewrite(pr *httputil.ProxyRequest) {
 
 func (h *Handler) modifyResponse(r *http.Response) error {
 	// Get the request respose.
-	rr := RequestResponseValue(r.Request.Context())
+	ctx := r.Request.Context()
+	rr := RequestResponseValue(ctx)
 	if rr == nil {
 		// log this as an error.
 		return nil
@@ -82,7 +84,8 @@ func (h *Handler) modifyResponse(r *http.Response) error {
 	h.copyResponse(rr, r)
 
 	// Call the tap.
-	h.tap.Serve(r.Request.Context(), rr)
+	ctx = context.WithValue(ctx, proxyLoggerKey{}, h.logger)
+	h.tap.Serve(ctx, rr)
 	// Return the buffers.
 	bufpool.Put(rr.ReqBody)
 	bufpool.Put(rr.RespBody)

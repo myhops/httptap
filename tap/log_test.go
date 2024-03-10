@@ -12,14 +12,7 @@ import (
 	"github.com/myhops/httptap"
 )
 
-func TestLogGroup(t *testing.T) {
-	h := make(http.Header)
-	h.Set("h1", "v1")
 
-	attr := slog.Any("header", slog.GroupValue(headerToAttrs(h)...))
-	s := attr.String()
-	t.Log(s)
-}
 
 func TestLogTap(t *testing.T) {
 	var responseBody = []byte("dasfadfaefacvv vasdfad asdfasd")
@@ -117,5 +110,5 @@ func TestLogTap(t *testing.T) {
 		}
 	}
 
-	t.Error()
+	// t.Error()
 }

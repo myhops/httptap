@@ -11,6 +11,7 @@ import (
 
 type (
 	requestResponseKey struct{}
+	proxyLoggerKey struct{}
 )
 
 func WithRequestResponseValue(ctx context.Context, rr *RequestResponse) context.Context {
@@ -23,6 +24,14 @@ func RequestResponseValue(ctx context.Context) *RequestResponse {
 		return nil
 	}
 	return rr
+}
+
+func ProxyLoggerValue(ctx context.Context) *slog.Logger {
+	l, ok := ctx.Value(proxyLoggerKey{}).(*slog.Logger)
+	if !ok {
+		return nil
+	}
+	return l
 }
 
 type Proxy struct {
