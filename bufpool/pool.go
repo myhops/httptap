@@ -24,6 +24,7 @@ func (p *BufferPool) Get() *bytes.Buffer {
 	if !ok {
 		panic("BufferPool contains element of bad type")
 	}
+	b.Reset()
 	return b
 }
 

@@ -12,16 +12,22 @@ import (
 	"github.com/myhops/httptap"
 )
 
-
-
 func TestLogTap(t *testing.T) {
-	var responseBody = []byte("dasfadfaefacvv vasdfad asdfasd")
+	var (
+		responseBodyJSON = []byte(`{
+			"name": "Peter Zandbergen"
+		}`)
+		requestBodyJSON = []byte(`{
+				"name": "Peter Zandbergen"
+			}`)
+	)
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	// upstream server
 	us := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(responseBody)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(responseBodyJSON)
 	}))
 	defer us.Close()
 
@@ -38,19 +44,20 @@ func TestLogTap(t *testing.T) {
 	pr.Tap("GET /",
 		tapGet,
 		httptap.WithRequestBody(),
-		httptap.WithResponseBody(false),
+		httptap.WithResponseBody(),
 		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
 	pr.Tap("POST /",
 		tapPost,
 		httptap.WithRequestBody(),
-		httptap.WithResponseBody(false),
+		httptap.WithResponseBody(),
 		httptap.WithLogAttrs(slog.String("path", "POST /")),
 	)
 
 	// proxy server.
 	ps := httptest.NewServer(pr)
+	// Case 1
 	{
 		// issue a request.
 		resp, err := http.Get(ps.URL)
@@ -65,14 +72,15 @@ func TestLogTap(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error reading body")
 		}
-		if !bytes.Equal(responseBody, body) {
+		if !bytes.Equal(responseBodyJSON, body) {
 			t.Fatalf("received incorrect body")
 		}
 	}
+	// Case 2
 	{ // issue a request.
-		data := []byte("some text")
-		ct := http.DetectContentType(data)
-		resp, err := http.Post(ps.URL, ct, bytes.NewReader(data))
+		// data := []byte("some text")
+		ct := "application/json"
+		resp, err := http.Post(ps.URL, ct, bytes.NewReader(requestBodyJSON))
 		if err != nil {
 			t.Fatalf("get error: %s", err)
 		}
@@ -84,7 +92,7 @@ func TestLogTap(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error reading body")
 		}
-		if !bytes.Equal(responseBody, body) {
+		if !bytes.Equal(responseBodyJSON, body) {
 			t.Fatalf("received incorrect body")
 		}
 	}
@@ -105,10 +113,10 @@ func TestLogTap(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error reading body")
 		}
-		if !bytes.Equal(responseBody, body) {
+		if !bytes.Equal(responseBodyJSON, body) {
 			t.Fatalf("received incorrect body")
 		}
 	}
 
-	// t.Error()
+	t.Error()
 }
