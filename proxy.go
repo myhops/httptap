@@ -3,17 +3,20 @@ package httptap
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 )
 
 type (
 	requestContexttKey struct{}
-	requestResponseKey struct{}
-	handlerKey         struct{}
-	proxyLoggerKey     struct{}
+
+// requestResponseKey struct{}
+// handlerKey         struct{}
+// proxyLoggerKey     struct{}
 )
 
 type ProxyTap struct {
@@ -32,13 +35,15 @@ type RequestContext struct {
 	Handler         *Handler
 	RequestResponse *RequestResponse
 	Logger          *slog.Logger
+
+	closers []io.Closer
 }
 
 func withRequestContext(ctx context.Context, rc *RequestContext) context.Context {
 	return context.WithValue(ctx, requestContexttKey{}, rc)
 }
 
-func requestContextValue(ctx context.Context) *RequestContext {
+func RequestContextValue(ctx context.Context) *RequestContext {
 	res, ok := ctx.Value(requestContexttKey{}).(*RequestContext)
 	if !ok {
 		return nil
@@ -46,40 +51,34 @@ func requestContextValue(ctx context.Context) *RequestContext {
 	return res
 }
 
-// withRequestResponseValue add the request response to the context.
-func withRequestResponseValue(ctx context.Context, rr *RequestResponse) context.Context {
-	return context.WithValue(ctx, requestResponseKey{}, rr)
+var _ httputil.BufferPool = (*bytesPool)(nil)
+
+type bytesPool struct {
+	pool *sync.Pool
+	size int
 }
 
-// requestResponseValue returns the request response if present.
-func requestResponseValue(ctx context.Context) *RequestResponse {
-	rr, ok := ctx.Value(requestResponseKey{}).(*RequestResponse)
-	if !ok {
-		return nil
+func newBytesPool(size int) *bytesPool {
+	if size <= 0 {
+		size = 32 * 1024
 	}
-	return rr
-}
-
-// withRequestResponseValue add the request response to the context.
-func withHandlerValue(ctx context.Context, h *Handler) context.Context {
-	return context.WithValue(ctx, handlerKey{}, h)
-}
-
-// HandlerValue returns the request response if present.
-func handlerValue(ctx context.Context) *Handler {
-	res, ok := ctx.Value(handlerKey{}).(*Handler)
-	if !ok {
-		return nil
+	return &bytesPool {
+		pool: &sync.Pool{
+			New: func() any {
+				return make([]byte, size)
+			},
+		},
+		size: size,
 	}
-	return res
 }
 
-func ProxyLoggerValue(ctx context.Context) *slog.Logger {
-	l, ok := ctx.Value(proxyLoggerKey{}).(*slog.Logger)
-	if !ok {
-		return nil
-	}
-	return l
+
+func (p *bytesPool) Get() []byte {
+	return p.pool.Get().([]byte)
+}
+
+func (p *bytesPool) Put(b []byte) {
+	p.pool.Put(b)
 }
 
 type Proxy struct {
@@ -87,11 +86,14 @@ type Proxy struct {
 	upstream   *url.URL
 	logger     *slog.Logger
 	hasDefault bool
+
+	bytespool *bytesPool
 }
 
 func New(upstream string, options ...proxyOption) (*Proxy, error) {
 	p := &Proxy{
 		ServeMux: *http.NewServeMux(),
+		bytespool: newBytesPool(0),
 	}
 
 	// Process options
@@ -125,23 +127,14 @@ type tapOption func(p *Handler)
 
 func (p *Proxy) Tap(pattern string, tap Tap, options ...tapOption) {
 	logger := p.logger
-	th := &Handler{
-		p:        p,
-		upstream: p.upstream,
-		tap:      tap,
-		logger:   p.logger,
-	}
-
-	for _, o := range options {
-		o(th)
-	}
+	h := NewHandler(p.upstream, p, tap, logger, options...)
 
 	rp := &httputil.ReverseProxy{
-		Rewrite:        th.rewrite,
-		ModifyResponse: th.modifyResponse,
+		Rewrite:        h.rewrite,
+		ModifyResponse: h.modifyResponse,
 		ErrorLog:       slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		BufferPool:     p.bytespool,
 	}
-	th.logger = logger
 	p.ServeMux.Handle(pattern, rp)
 	p.hasDefault = p.hasDefault || pattern == "/"
 }
@@ -164,9 +157,17 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r = r.WithContext(withRequestContext(r.Context(), rc))
 	p.ServeMux.ServeHTTP(w, r)
+	rc.closers = append(rc.closers, r.Body)
 
 	// Call the handler.
 	rc.Handler.Serve(r.Context(), rc.RequestResponse)
+
+	// Close all bodies.
+	for _, c := range rc.closers {
+		if c != nil {
+			c.Close()
+		}
+	}
 }
 
 func WithLogAttrs(attrs ...slog.Attr) tapOption {

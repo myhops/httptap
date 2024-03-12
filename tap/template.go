@@ -37,8 +37,10 @@ func NewTemplateTap(w io.Writer, text string) (*TemplateTap, error) {
 
 func (t *TemplateTap) Serve(ctx context.Context, rr *httptap.RequestResponse) {
 	logger := slog.Default()
-	if ll := httptap.ProxyLoggerValue(ctx); ll != nil {
-		logger = ll
+	// Get the context
+	rc := httptap.RequestContextValue(ctx)
+	if rc.Logger != nil {
+		logger = rc.Logger
 	}
 	to := TemplateObject{
 		Data: rr,

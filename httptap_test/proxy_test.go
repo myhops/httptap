@@ -1,4 +1,4 @@
-package httptap
+package httptap_test
 
 import (
 	"bytes"
@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/myhops/httptap"
 )
 
 func TestProxy(t *testing.T) {
@@ -22,32 +24,32 @@ func TestProxy(t *testing.T) {
 	}))
 	defer us.Close()
 
-	pr, err := New(us.URL, WithLogger(logger))
+	pr, err := httptap.New(us.URL, httptap.WithLogger(logger))
 	if err != nil {
 		t.Fatalf("error creating proxy: %s", err)
 	}
 
-	tapGet := TapFunc(func(_ context.Context, rr *RequestResponse) {
+	tapGet := httptap.TapFunc(func(_ context.Context, rr *httptap.RequestResponse) {
 		t.Logf("tap GET called")
 	})
 
-	tapPost := TapFunc(func(_ context.Context, rr *RequestResponse) {
+	tapPost := httptap.TapFunc(func(_ context.Context, rr *httptap.RequestResponse) {
 		t.Logf("tap PUT called")
 	})
 
 	// add a tap.
 	pr.Tap("GET /",
 		tapGet,
-		WithRequestBody(),
-		WithResponseBody(false),
-		WithLogAttrs(slog.String("path", "GET /")),
+		httptap.WithRequestBody(),
+		httptap.WithResponseBody(false),
+		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
 	pr.Tap("POST /",
 		tapPost,
-		WithRequestBody(),
-		WithResponseBody(false),
-		WithLogAttrs(slog.String("path", "POST /")),
+		httptap.WithRequestBody(),
+		httptap.WithResponseBody(false),
+		httptap.WithLogAttrs(slog.String("path", "POST /")),
 	)
 
 	// proxy server.

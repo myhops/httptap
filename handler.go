@@ -23,6 +23,19 @@ func (e ctError) Error() string {
 	return fmt.Sprintf("expected application/json, got %s", string(e))
 }
 
+func NewHandler(upstream *url.URL, p *Proxy, tap Tap, logger *slog.Logger, options ...tapOption) *Handler {
+	h := &Handler{
+		p:        p,
+		upstream: upstream,
+		tap:      tap,
+		logger:   logger,
+	}
+	for _, o := range options {
+		o(h)
+	}
+	return h
+}
+
 type Handler struct {
 	p        *Proxy
 	upstream *url.URL
@@ -38,13 +51,9 @@ type Handler struct {
 func (h *Handler) copyRequest(rr *RequestResponse, pr *httputil.ProxyRequest) {
 	// Allocate a buffer for the outgoing request.
 	if h.withRequestBody && pr.Out.Body != nil {
-		b := bufpool.Get()
 		rr.ReqBody = bufpool.Get()
-		// Read the body twice.
-		body := pr.Out.Body
-		b.ReadFrom(io.TeeReader(body, rr.ReqBody))
-		// Add the copy to the outgoing request.
-		pr.Out.Body = io.NopCloser(b)
+		// Ensure closing the bodies.
+		pr.Out.Body = io.NopCloser(io.TeeReader(pr.Out.Body, rr.ReqBody))
 	}
 
 	rr.Host = pr.Out.Host
@@ -60,10 +69,7 @@ func (h *Handler) copyResponse(rr *RequestResponse, r *http.Response) {
 	// Save the response body.
 	if h.withResponseBody && r.Body != nil {
 		rr.RespBody = bufpool.Get()
-		b := bufpool.Get()
-		b.ReadFrom(io.TeeReader(r.Body, rr.RespBody))
-		r.Body = io.NopCloser(b)
-		r.Body.Close()
+		r.Body = io.NopCloser(io.TeeReader(r.Body, rr.RespBody))
 	}
 
 	// Here we can collect the data
@@ -76,10 +82,10 @@ func (h *Handler) copyResponse(rr *RequestResponse, r *http.Response) {
 
 func (h *Handler) rewrite(pr *httputil.ProxyRequest) {
 	// Add the request context to the outgoing request.
-	rc := requestContextValue(pr.In.Context())
+	rc := RequestContextValue(pr.In.Context())
 	pr.Out = pr.Out.WithContext(withRequestContext(pr.Out.Context(), rc))
 
-	// Add myself to the request context.
+	// Add myself and the proxied request to the request context.
 	rc.Handler = h
 
 	// Create the request response and add it to the request context
@@ -95,28 +101,34 @@ func (h *Handler) rewrite(pr *httputil.ProxyRequest) {
 
 	pr.SetXForwarded()
 
+	// Ensure bodies are closed.
+	rc.closers = append(rc.closers, pr.In.Body, pr.Out.Body)
+
 	// Record the data.
 	h.copyRequest(rr, pr)
 }
 
 func (h *Handler) modifyResponse(r *http.Response) error {
 	// Get the request context
-	rc := requestContextValue(r.Request.Context())
+	rc := RequestContextValue(r.Request.Context())
 
 	rr := rc.RequestResponse
 	rr.End = time.Now()
 	rr.Duration = rr.End.Sub(rr.Start)
 
+	// Ensure r.body is closed.
+	rc.closers = append(rc.closers, r.Body)
+
 	// Record the data.
 	h.copyResponse(rr, r)
-
-	// Unmarshal json bodies.
-	h.unmarshalBodies(rr)
 
 	return nil
 }
 
 func (h *Handler) Serve(ctx context.Context, rr *RequestResponse) error {
+	// Unmarshal json bodies.
+	h.unmarshalBodies(rr)
+
 	// Call the tap.
 	h.tap.Serve(ctx, rr)
 

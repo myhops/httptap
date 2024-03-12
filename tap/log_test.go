@@ -123,6 +123,4 @@ func TestLogTap(t *testing.T) {
 			t.Fatalf("received incorrect body")
 		}
 	}
-
-	// t.Error()
 }
