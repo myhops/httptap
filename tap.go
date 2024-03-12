@@ -21,7 +21,8 @@ type RequestResponse struct {
 	ReqTrailer http.Header
 	// This buffer is valid until the end of Serve.
 	// Do not read from this buffer, but create a reader from it.
-	ReqBody    *bytes.Buffer
+	ReqBody     *bytes.Buffer
+	ReqBodyJSON any
 
 	StatusCode  int
 	Status      string
@@ -39,7 +40,8 @@ type RequestResponse struct {
 	// 	savedBody := make([]byte, RespBody.Len())
 	//  copy(savedBody, RespBody.Bytes())
 	//  r := bytes.NewReader(savedBody)
-	RespBody    *bytes.Buffer
+	RespBody     *bytes.Buffer
+	RespBodyJSON any
 }
 
 type Tap interface {
@@ -52,3 +54,4 @@ type TapFunc func(context.Context, *RequestResponse)
 func (t TapFunc) Serve(ctx context.Context, r *RequestResponse) {
 	t(ctx, r)
 }
+

@@ -15,11 +15,13 @@ import (
 func TestLogTap(t *testing.T) {
 	var (
 		responseBodyJSON = []byte(`{
+			"from": "response body",
 			"name": "Peter Zandbergen"
 		}`)
 		requestBodyJSON = []byte(`{
-				"name": "Peter Zandbergen"
-			}`)
+			"from": "request body",
+			"name": "Peter Zandbergen"
+		}`)
 	)
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -45,6 +47,8 @@ func TestLogTap(t *testing.T) {
 		tapGet,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),
+		httptap.WithRequestJSON(),
+		httptap.WithResponseJSON(),
 		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
@@ -52,6 +56,8 @@ func TestLogTap(t *testing.T) {
 		tapPost,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),
+		httptap.WithRequestJSON(),
+		httptap.WithResponseJSON(),
 		httptap.WithLogAttrs(slog.String("path", "POST /")),
 	)
 
@@ -118,5 +124,5 @@ func TestLogTap(t *testing.T) {
 		}
 	}
 
-	t.Error()
+	// t.Error()
 }

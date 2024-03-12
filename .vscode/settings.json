@@ -1,0 +1,5 @@
+{
+    "yaml.schemas": {
+        "https://taskfile.dev/schema.json": "file:///home/peza/DevProjects/httptap/Taskfile.yml"
+    }
+}

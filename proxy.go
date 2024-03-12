@@ -10,20 +10,68 @@ import (
 )
 
 type (
+	requestContexttKey struct{}
 	requestResponseKey struct{}
-	proxyLoggerKey struct{}
+	handlerKey         struct{}
+	proxyLoggerKey     struct{}
 )
 
-func WithRequestResponseValue(ctx context.Context, rr *RequestResponse) context.Context {
+type ProxyTap struct {
+	Pattern  string
+	TypeName string
+}
+
+type ProxyConfig struct {
+	Listen   string
+	Upstream string
+	Taps     []ProxyTap
+	LogLevel slog.Level
+}
+
+type RequestContext struct {
+	Handler         *Handler
+	RequestResponse *RequestResponse
+	Logger          *slog.Logger
+}
+
+func withRequestContext(ctx context.Context, rc *RequestContext) context.Context {
+	return context.WithValue(ctx, requestContexttKey{}, rc)
+}
+
+func requestContextValue(ctx context.Context) *RequestContext {
+	res, ok := ctx.Value(requestContexttKey{}).(*RequestContext)
+	if !ok {
+		return nil
+	}
+	return res
+}
+
+// withRequestResponseValue add the request response to the context.
+func withRequestResponseValue(ctx context.Context, rr *RequestResponse) context.Context {
 	return context.WithValue(ctx, requestResponseKey{}, rr)
 }
 
-func RequestResponseValue(ctx context.Context) *RequestResponse {
+// requestResponseValue returns the request response if present.
+func requestResponseValue(ctx context.Context) *RequestResponse {
 	rr, ok := ctx.Value(requestResponseKey{}).(*RequestResponse)
 	if !ok {
 		return nil
 	}
 	return rr
+}
+
+// withRequestResponseValue add the request response to the context.
+func withHandlerValue(ctx context.Context, h *Handler) context.Context {
+	return context.WithValue(ctx, handlerKey{}, h)
+}
+
+// HandlerValue returns the request response if present.
+func handlerValue(ctx context.Context) *Handler {
+	res, ok := ctx.Value(handlerKey{}).(*Handler)
+	if !ok {
+		return nil
+	}
+	return res
 }
 
 func ProxyLoggerValue(ctx context.Context) *slog.Logger {
@@ -110,7 +158,15 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.Tap("/", nopTap(p.logger), WithRequestBody(false), WithResponseBody(false))
 		p.hasDefault = true
 	}
+	// Add the request context to the request.
+	rc := &RequestContext{
+		Logger: p.logger,
+	}
+	r = r.WithContext(withRequestContext(r.Context(), rc))
 	p.ServeMux.ServeHTTP(w, r)
+
+	// Call the handler.
+	rc.Handler.Serve(r.Context(), rc.RequestResponse)
 }
 
 func WithLogAttrs(attrs ...slog.Attr) tapOption {
@@ -127,6 +183,18 @@ func WithRequestBody(yes ...bool) tapOption {
 
 func WithResponseBody(yes ...bool) tapOption {
 	return tapOption(func(h *Handler) {
-		h.WithResponseBody = len(yes) != 1 || yes[0]
+		h.withResponseBody = len(yes) != 1 || yes[0]
+	})
+}
+
+func WithRequestJSON(yes ...bool) tapOption {
+	return tapOption(func(h *Handler) {
+		h.withRequestJSON = len(yes) != 1 || yes[0]
+	})
+}
+
+func WithResponseJSON(yes ...bool) tapOption {
+	return tapOption(func(h *Handler) {
+		h.withResponseJSON = len(yes) != 1 || yes[0]
 	})
 }
