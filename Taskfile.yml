@@ -17,4 +17,8 @@ tasks:
 
   cover:
     cmds: 
-      - cmd: go test -cover -coverprofile cover.out ./...
+      - cmd: go test -cover -coverprofile cover.out .
+
+  profile:
+    cmds:
+      - cmd: go test -cpuprofile cpu.prof -memprofile mem.prof -bench=./httptap_test

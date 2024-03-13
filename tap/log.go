@@ -8,6 +8,10 @@ import (
 	"github.com/myhops/httptap"
 )
 
+type LogTapConfig struct {
+	
+}
+
 // TODO: Add body filter with json patch.
 type LogTap struct {
 	logger  *slog.Logger
@@ -55,7 +59,8 @@ func (t *LogTap) isBlocked(key string) bool {
 
 // Filter sensitive headers.
 func (t *LogTap) headerToAttrs(h http.Header) []slog.Attr {
-	var values []slog.Attr
+
+	values := make([]slog.Attr, 0, len(h))
 	for k, v := range h {
 		if !t.isBlocked(k) {
 			values = append(values, slog.String(k, v[0]))

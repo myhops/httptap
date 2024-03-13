@@ -13,7 +13,7 @@ import (
 )
 
 func TestTemplateTap(t *testing.T) {
-	tpl, err := NewTemplateTap(os.Stdout, DefaultTemplate)
+	tpl, err := NewTemplateTap(slog.Default(), DefaultTemplate, "", "json")
 	if err != nil {
 		t.Errorf("error: %s", err.Error())
 	}
@@ -126,7 +126,7 @@ const (
 )
 
 func TestTemplateTapBody(t *testing.T) {
-	tpl, err := NewTemplateTap(os.Stdout, fromBodyTemplate)
+	tpl, err := NewTemplateTap(slog.Default(), fromBodyTemplate, "data", "json")
 	if err != nil {
 		t.Errorf("error: %s", err.Error())
 	}
