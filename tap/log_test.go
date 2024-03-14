@@ -43,7 +43,7 @@ func TestLogTap(t *testing.T) {
 	tapPost := NewLogTap(logger, slog.LevelInfo)
 
 	// add a tap.
-	pr.Tap("GET /",
+	pr.Tap([]string{"GET /"},
 		tapGet,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),
@@ -52,7 +52,7 @@ func TestLogTap(t *testing.T) {
 		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
-	pr.Tap("POST /",
+	pr.Tap([]string{"POST /"},
 		tapPost,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),

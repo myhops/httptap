@@ -62,7 +62,7 @@ func newBytesPool(size int) *bytesPool {
 	if size <= 0 {
 		size = 32 * 1024
 	}
-	return &bytesPool {
+	return &bytesPool{
 		pool: &sync.Pool{
 			New: func() any {
 				return make([]byte, size)
@@ -71,7 +71,6 @@ func newBytesPool(size int) *bytesPool {
 		size: size,
 	}
 }
-
 
 func (p *bytesPool) Get() []byte {
 	return p.pool.Get().([]byte)
@@ -92,7 +91,7 @@ type Proxy struct {
 
 func New(upstream string, options ...proxyOption) (*Proxy, error) {
 	p := &Proxy{
-		ServeMux: *http.NewServeMux(),
+		ServeMux:  *http.NewServeMux(),
 		bytespool: newBytesPool(0),
 	}
 
@@ -125,7 +124,7 @@ func WithLogger(logger *slog.Logger) proxyOption {
 // The passed handler has proxy, logger and upstream set.
 type tapOption func(p *Handler)
 
-func (p *Proxy) Tap(pattern string, tap Tap, options ...tapOption) {
+func (p *Proxy) Tap(patterns []string, tap Tap, options ...tapOption) {
 	logger := p.logger
 	h := NewHandler(p.upstream, p, tap, logger, options...)
 
@@ -135,8 +134,10 @@ func (p *Proxy) Tap(pattern string, tap Tap, options ...tapOption) {
 		ErrorLog:       slog.NewLogLogger(logger.Handler(), slog.LevelError),
 		BufferPool:     p.bytespool,
 	}
-	p.ServeMux.Handle(pattern, rp)
-	p.hasDefault = p.hasDefault || pattern == "/"
+	for _, pattern := range patterns {
+		p.ServeMux.Handle(pattern, rp)
+		p.hasDefault = p.hasDefault || pattern == "/"
+	}
 }
 
 func nopTap(logger *slog.Logger) TapFunc {
@@ -148,7 +149,7 @@ func nopTap(logger *slog.Logger) TapFunc {
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !p.hasDefault {
-		p.Tap("/", nopTap(p.logger), WithRequestBody(false), WithResponseBody(false))
+		p.Tap([]string{"/"}, nopTap(p.logger), WithRequestBody(false), WithResponseBody(false))
 		p.hasDefault = true
 	}
 	// Add the request context to the request.

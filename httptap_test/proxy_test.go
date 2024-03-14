@@ -39,14 +39,14 @@ func TestProxy(t *testing.T) {
 	})
 
 	// add a tap.
-	pr.Tap("GET /",
+	pr.Tap([]string{"GET /"},
 		tapGet,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(false),
 		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
-	pr.Tap("POST /",
+	pr.Tap([]string{"POST /"},
 		tapPost,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(false),
@@ -134,7 +134,7 @@ func BenchmarkLogTap(b *testing.B) {
 
 	tapAll := tap.NewLogTap(logger, slog.LevelInfo)
 
-	pr.Tap("/",
+	pr.Tap([]string{"/"},
 		tapAll,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),

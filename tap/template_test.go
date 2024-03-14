@@ -38,7 +38,7 @@ func TestTemplateTap(t *testing.T) {
 	tapPost := tpl
 
 	// add a tap.
-	pr.Tap("GET /",
+	pr.Tap([]string{"GET /"},
 		tapGet,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),
@@ -47,7 +47,7 @@ func TestTemplateTap(t *testing.T) {
 		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
-	pr.Tap("POST /",
+	pr.Tap([]string{"POST /"},
 		tapPost,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(false),
@@ -162,7 +162,7 @@ func TestTemplateTapBody(t *testing.T) {
 	tapPost := tpl
 
 	// add a tap.
-	pr.Tap("GET /",
+	pr.Tap([]string{"GET /"},
 		tapGet,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),
@@ -171,7 +171,7 @@ func TestTemplateTapBody(t *testing.T) {
 		httptap.WithLogAttrs(slog.String("path", "GET /")),
 	)
 
-	pr.Tap("POST /",
+	pr.Tap([]string{"POST /"},
 		tapPost,
 		httptap.WithRequestBody(),
 		httptap.WithResponseBody(),
