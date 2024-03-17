@@ -40,7 +40,7 @@ func (p *BufferPool) Put(b *bytes.Buffer) {
 		return
 	}
 	if c:= b.Cap(); c > p.size {
-		slog.Default().Debug("discard large Buffer", slog.String("packager", "BufferPool"),  slog.Int("cap",s))
+		slog.Default().Debug("discard large Buffer", slog.String("packager", "BufferPool"),  slog.Int("cap",c))
 		return
 	}
 	p.pool.Put(b)
