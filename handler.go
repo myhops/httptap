@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/myhops/httptap/bufpool"
 )
 
@@ -46,6 +47,12 @@ type Handler struct {
 	withResponseBody bool
 	withRequestJSON  bool
 	withResponseJSON bool
+
+	includeHeaders []string
+	excludeHeaders []string
+
+	reqBodyPatch  jsonpatch.Patch
+	respBodyPatch jsonpatch.Patch
 }
 
 func (h *Handler) copyRequest(rr *RequestResponse, pr *httputil.ProxyRequest) {
@@ -125,8 +132,33 @@ func (h *Handler) modifyResponse(r *http.Response) error {
 	return nil
 }
 
+func (h *Handler) patchBodies(rr *RequestResponse) {
+	if h.reqBodyPatch != nil {
+		b, err := h.reqBodyPatch.Apply(rr.ReqBody.Bytes())
+		if err != nil {
+			// Log it
+			h.logger.Error("req body patch failed", slog.String("err", err.Error()))
+			goto NextPatch
+		}
+		rr.ReqBody.Reset()
+		rr.ReqBody.Write(b)
+	}
+NextPatch:
+
+	if h.respBodyPatch != nil {
+		b, err := h.respBodyPatch.Apply(rr.RespBody.Bytes())
+		if err != nil {
+			h.logger.Error("resp body patch failed", slog.String("err", err.Error()))
+			return
+		}
+		rr.RespBody.Reset()
+		rr.RespBody.Write(b)
+	}
+}
+
 func (h *Handler) Serve(ctx context.Context, rr *RequestResponse) error {
 	// Unmarshal json bodies.
+	h.patchBodies(rr)
 	h.unmarshalBodies(rr)
 
 	// Call the tap.

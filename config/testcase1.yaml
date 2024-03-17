@@ -1,0 +1,30 @@
+listenAddress: 0.0.0.0:18080
+logging:
+  logLevel: info
+  logFile: /dev/stdout
+upstream: http://localhost:8080
+header:
+  exclude: ["Authorization"]
+  include: ["X-Api-Key"]
+taps:
+  - name: log tap
+    patterns:
+      - "PUT /"
+      - "GET /"
+    logTap: 
+      logFile: /dev/stdout
+    body: true
+    bodyFilter: tbd
+    header:
+      exclude: ["Authorization"]
+      include: ["X-Api-Key"]
+  - name: template tap
+    patterns:
+      - "PUT /"
+      - "GET /"
+    templateTap: 
+      logFile: /dev/stdout
+      template: |-
+        multiline
+        template is here
+

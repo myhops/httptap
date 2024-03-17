@@ -13,6 +13,7 @@ type LogTapConfig struct {
 }
 
 // TODO: Add body filter with json patch.
+// TODO: Add header filter
 type LogTap struct {
 	logger  *slog.Logger
 	level   slog.Level
