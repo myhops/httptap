@@ -2,6 +2,7 @@ package bufpool
 
 import (
 	"bytes"
+	"log/slog"
 	"sync"
 )
 
@@ -38,7 +39,8 @@ func (p *BufferPool) Put(b *bytes.Buffer) {
 	if b == nil {
 		return
 	}
-	if b.Cap() > p.size {
+	if c:= b.Cap(); c > p.size {
+		slog.Default().Debug("discard large Buffer", slog.String("packager", "BufferPool"),  slog.Int("cap",s))
 		return
 	}
 	p.pool.Put(b)
