@@ -6,19 +6,18 @@ vars:
   GREETING: Hello, World!
 
 tasks:
-  default:
-    cmds:
-      - echo "{{.GREETING}}"
-    silent: true
 
   test:
+    desc: Test all
     cmds:
       - cmd: go test ./...
 
   cover:
+    desc: Cover test
     cmds: 
       - cmd: go test -cover -coverprofile cover.out .
 
   profile:
+    desc: Profile all
     cmds:
-      - cmd: go test -cpuprofile cpu.prof -memprofile mem.prof -bench=./httptap_test
+      - cmd: go test -cpuprofile cpu.prof -memprofile mem.prof -bench=. .
