@@ -18,6 +18,7 @@ import (
 	"github.com/myhops/httptap/bufpool"
 )
 
+// ctError reports content type errors
 type ctError string
 
 func (e ctError) Error() string {
@@ -56,11 +57,13 @@ type Handler struct {
 }
 
 func (h *Handler) copyRequest(rr *RequestResponse, pr *httputil.ProxyRequest) {
+	logger := h.logger.With(slog.String("step", "copyRequest"))
 	// Allocate a buffer for the outgoing request.
 	if h.withRequestBody && pr.Out.Body != nil {
 		rr.ReqBody = bufpool.Get()
 		// Ensure closing the bodies.
 		pr.Out.Body = io.NopCloser(io.TeeReader(pr.Out.Body, rr.ReqBody))
+		logger.Debug("prepared to copy body")
 	}
 
 	rr.Host = pr.Out.Host
@@ -73,10 +76,12 @@ func (h *Handler) copyRequest(rr *RequestResponse, pr *httputil.ProxyRequest) {
 }
 
 func (h *Handler) copyResponse(rr *RequestResponse, r *http.Response) {
+	logger := h.logger.With(slog.String("step", "copyResponse"))
 	// Save the response body.
 	if h.withResponseBody && r.Body != nil {
 		rr.RespBody = bufpool.Get()
 		r.Body = io.NopCloser(io.TeeReader(r.Body, rr.RespBody))
+		logger.Debug("prepared to copy body")
 	}
 
 	// Here we can collect the data
@@ -133,7 +138,9 @@ func (h *Handler) modifyResponse(r *http.Response) error {
 }
 
 func (h *Handler) patchBodies(rr *RequestResponse) {
+	logger := h.logger.With(slog.String("step", "patchBodies"))
 	if h.reqBodyPatch != nil {
+		logger.Info("patching request")
 		b, err := h.reqBodyPatch.Apply(rr.ReqBody.Bytes())
 		if err != nil {
 			// Log it
@@ -146,6 +153,7 @@ func (h *Handler) patchBodies(rr *RequestResponse) {
 NextPatch:
 
 	if h.respBodyPatch != nil {
+		logger.Info("patching response")
 		b, err := h.respBodyPatch.Apply(rr.RespBody.Bytes())
 		if err != nil {
 			h.logger.Error("resp body patch failed", slog.String("err", err.Error()))
@@ -201,3 +209,4 @@ func (t *Handler) isJson(h http.Header) error {
 	}
 	return nil
 }
+

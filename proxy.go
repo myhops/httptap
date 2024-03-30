@@ -65,7 +65,8 @@ func newBytesPool(size int) *bytesPool {
 	return &bytesPool{
 		pool: &sync.Pool{
 			New: func() any {
-				return make([]byte, size)
+				res := make([]byte, size)
+				return &res
 			},
 		},
 		size: size,
@@ -73,11 +74,12 @@ func newBytesPool(size int) *bytesPool {
 }
 
 func (p *bytesPool) Get() []byte {
-	return p.pool.Get().([]byte)
+	res := p.pool.Get().(*[]byte)
+	return *res
 }
 
 func (p *bytesPool) Put(b []byte) {
-	p.pool.Put(b)
+	p.pool.Put(&b)
 }
 
 type Proxy struct {
@@ -123,6 +125,7 @@ func WithLogger(logger *slog.Logger) proxyOption {
 // Tap options can modify the handler.
 // The passed handler has proxy, logger and upstream set.
 type tapOption func(p *Handler)
+type TapOptions []tapOption
 
 func (p *Proxy) Tap(patterns []string, tap Tap, options ...tapOption) {
 	logger := p.logger
@@ -171,32 +174,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func WithLogAttrs(attrs ...slog.Attr) tapOption {
-	return tapOption(func(h *Handler) {
-		h.logger = slog.New(h.logger.Handler().WithAttrs(attrs))
-	})
-}
-
-func WithRequestBody(yes ...bool) tapOption {
-	return tapOption(func(h *Handler) {
-		h.withRequestBody = len(yes) != 1 || yes[0]
-	})
-}
-
-func WithResponseBody(yes ...bool) tapOption {
-	return tapOption(func(h *Handler) {
-		h.withResponseBody = len(yes) != 1 || yes[0]
-	})
-}
-
-func WithRequestJSON(yes ...bool) tapOption {
-	return tapOption(func(h *Handler) {
-		h.withRequestJSON = len(yes) != 1 || yes[0]
-	})
-}
-
-func WithResponseJSON(yes ...bool) tapOption {
-	return tapOption(func(h *Handler) {
-		h.withResponseJSON = len(yes) != 1 || yes[0]
-	})
+func canonicalHeaders(header []string) []string {
+	var res = make([]string, 0, len(header))
+	for _, h := range header {
+		res = append(res, http.CanonicalHeaderKey(h))
+	}
+	return res
 }

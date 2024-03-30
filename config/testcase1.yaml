@@ -13,8 +13,9 @@ taps:
       - "GET /"
     logTap: 
       logFile: /dev/stdout
-    body: true
-    bodyFilter: tbd
+    requestOut:
+      body: true
+      bodyPatch: tbd
     header:
       exclude: ["Authorization"]
       include: ["X-Api-Key"]

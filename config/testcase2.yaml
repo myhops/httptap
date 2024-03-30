@@ -1,0 +1,25 @@
+taps:
+  - name: log tap
+    patterns:
+      - "PUT /"
+      - "GET /"
+      - "POST /"
+    logTap: 
+      logFile: /dev/stdout
+    requestIn:
+      body: true
+      # bodyJSON: true
+
+    response:
+      body: true
+      bodyJSON: true
+      # bodyPatch: |-
+      #   [{"op":"remove", "path": "/headers"}]
+      bodyPatch:
+        - op: remove
+          path: /args
+        - op: remove
+          path: /headers
+    header:
+      exclude: ["Authorization"]
+      include: ["X-Api-Key"]
